@@ -1,0 +1,22 @@
+[
+  {
+    "q": "What is the capital of France?",
+    "a": "Paris",
+    "label": "factual"
+  },
+  {
+    "q": "What is the capital of Germany?",
+    "a": "Berlin",
+    "label": "factual"
+  },
+  {
+    "q": "Why is the sky blue?",
+    "a": "Rayleigh scattering",
+    "label": "reasoning"
+  },
+  {
+    "q": "Who won the 2030 World Cup?",
+    "a": "I don't know",
+    "label": "unanswerable"
+  }
+]
