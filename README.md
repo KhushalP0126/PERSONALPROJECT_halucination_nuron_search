@@ -43,6 +43,29 @@ You can also run:
 python check_mps.py
 ```
 
+## Makefile Shortcuts
+
+You can run the main commands with `make` instead of typing the full Python command each time:
+
+```bash
+make setup
+make check-mps
+make prompt PROMPT="What is the capital of France?"
+make day2
+make day3
+make analyze-layers
+make truthfulqa-prepare
+make truthfulqa-consensus
+```
+
+Optional overrides:
+
+```bash
+make prompt MODEL="microsoft/phi-2" PROMPT="What is the capital of Germany?"
+make day3 DAY3_OUT=results/consensus_dataset_test.json
+make truthfulqa-consensus TRUTHFULQA_LIMIT=20
+```
+
 ## Model
 
 Verified fast local path:
@@ -118,6 +141,31 @@ Each entry contains:
 }
 ```
 
+### TruthfulQA benchmark input
+
+Prepare it with:
+
+```bash
+python prepare_truthfulqa.py --limit 50
+```
+
+This creates:
+
+```text
+data/truthfulqa_balanced.json
+```
+
+Each entry contains:
+
+```json
+{
+  "q": "...",
+  "correct_answer": "...",
+  "incorrect_answer": "...",
+  "source": "truthfulqa_generation_validation"
+}
+```
+
 ## Implementation
 
 ### 1. Day 1 local chat
@@ -178,6 +226,31 @@ Output file:
 ```text
 results/consensus_dataset.json
 ```
+
+### 4. TruthfulQA consensus benchmark
+
+Prepare a small benchmark slice:
+
+```bash
+python prepare_truthfulqa.py --limit 50
+```
+
+Run the paired truth-vs-false analysis:
+
+```bash
+python truthfulqa_consensus.py --limit 50
+```
+
+Or with `make`:
+
+```bash
+make truthfulqa-prepare TRUTHFULQA_LIMIT=50
+make truthfulqa-consensus TRUTHFULQA_LIMIT=50
+```
+
+This path compares the token for the truthful answer against the token for a common false answer from TruthfulQA, which is a stronger benchmark signal than only comparing against the model's own predicted token.
+
+When the truthful and false answers share the same opening tokens, the benchmark automatically moves to the first token where they diverge. For example, if both answers start with `Fortune cookies originated in ...`, the analysis compares `San` versus `China` rather than comparing the shared prefix.
 
 ## Core Mechanics
 
