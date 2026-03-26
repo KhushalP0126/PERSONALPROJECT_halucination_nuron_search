@@ -34,28 +34,33 @@ python check_mps.py
 - `prepare_truthfulqa_dataset.py`: download and convert TruthfulQA into a paired dataset
 - `benchmark_truthfulqa_consensus.py`: compare truthful vs false answer tokens on TruthfulQA
 - `visualize_consensus_patterns.py`: plot curves, compute conflict scores, and evaluate a simple threshold baseline
+- `analyze_neuron_contributions.py`: decompose one selected layer into per-neuron support vs opposition contributions
 
 ## Makefile Shortcuts
 
 ```bash
 make setup
 make check-mps
-make prompt PROMPT="What is the capital of France?"
-make build-hidden-dataset
-make build-consensus-dataset
-make summarize-layer-support
-make prepare-truthfulqa
-make benchmark-truthfulqa
-make visualize-consensus
+make ask QUESTION="What is the capital of France?"
+make hidden-dataset
+make consensus
+make layers
+make truthfulqa LIMIT=20
+make benchmark LIMIT=20
+make plots INPUT=results/truthfulqa_consensus_benchmark.json
+make neurons QUESTION_MATCH="capital of France" LAYER=19
 ```
 
 Useful overrides:
 
 ```bash
-make prompt MODEL="microsoft/phi-2" PROMPT="What is the capital of Germany?"
-make benchmark-truthfulqa TRUTHFULQA_LIMIT=20
-make visualize-consensus VIS_INPUT=results/truthfulqa_consensus_benchmark.json
+make ask MODEL="microsoft/phi-2" QUESTION="What is the capital of Germany?"
+make benchmark LIMIT=20
+make plots INPUT=results/truthfulqa_consensus_benchmark.json OUTPUT_DIR=results/consensus_plots
+make neurons INPUT=results/consensus_dataset.json QUESTION_MATCH="capital of France" LAYER=19 TOP_K=25
 ```
+
+Legacy target names like `prompt`, `build-consensus-dataset`, and `analyze-neurons` still work, but the shorter names above are the preferred interface.
 
 ## Model Runtime
 
@@ -289,6 +294,42 @@ What to look for:
 - lower conflict: cleaner internal agreement
 
 If the threshold accuracy is above random, the signal is doing real work.
+
+## 8. Zoom Into One Layer And Inspect Neurons
+
+Run:
+
+```bash
+python analyze_neuron_contributions.py --in results/consensus_dataset.json --sample-index 0
+```
+
+Or with Make:
+
+```bash
+make neurons QUESTION_MATCH="capital of France"
+```
+
+Output directory:
+
+```text
+results/neuron_contributions/record_000_layer_XX/
+```
+
+The script:
+
+- picks a layer explicitly or chooses one automatically from the support curve
+- reconstructs the same analysis input used by the consensus step
+- computes each neuron's support-token and comparison-token contribution
+- classifies neurons by net effect on the layer support score
+- saves plots and a JSON dump of the per-neuron contributions
+
+Each run writes:
+
+- `contribution_histogram.png`
+- `top_neurons.png`
+- `neuron_contributions.json`
+
+This is still an approximation. The decomposition is done after the final normalization step, so it is a useful linearized view of neuron influence, not a full causal attribution.
 
 ## Notes
 
