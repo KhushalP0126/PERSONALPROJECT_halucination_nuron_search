@@ -345,33 +345,24 @@ def save_json(record: dict, output_path: Path) -> None:
     output_path.write_text(json.dumps(record, indent=2))
 
 
-def main() -> None:
-    args = parse_args()
-    device = resolve_device() if args.device == "auto" else args.device
-    validate_device(device)
-
-    input_path = Path(args.input_path)
-    records = load_records(input_path)
-    record_index, record = select_record(
-        records=records,
-        sample_index=args.sample_index,
-        question_contains=args.question_contains,
-    )
+def analyze_record_neurons(
+    record_index: int,
+    record: dict,
+    tokenizer,
+    model,
+    device: str,
+    explicit_layer: int | None,
+    layer_mode: str,
+    top_k: int,
+):
     support_scores = record.get("support_scores")
     if not isinstance(support_scores, list) or not support_scores:
         raise ValueError("Selected record does not contain a non-empty support_scores field.")
 
     layer_index, layer_reason = choose_layer(
         scores=support_scores,
-        explicit_layer=args.layer,
-        mode=args.layer_mode,
-    )
-
-    print(f"Loading {args.model} on {device}...")
-    tokenizer, model = load_model(
-        model_name=args.model,
-        device=device,
-        allow_remote_code=args.allow_remote_code,
+        explicit_layer=explicit_layer,
+        mode=layer_mode,
     )
 
     support_id, support_token, comparison_id, comparison_token, token_pair_mode = resolve_token_pair(
@@ -398,9 +389,64 @@ def main() -> None:
     if bias is not None:
         bias_delta = float((bias[support_id] - bias[comparison_id]).item())
 
-    net_effect = float(net_contrib.sum().item())
-    reconstructed_support_score = net_effect + bias_delta
+    reconstructed_support_score = float(net_contrib.sum().item()) + bias_delta
     layer_support_score = float(support_scores[layer_index])
+
+    output_record = build_output_record(
+        record_index=record_index,
+        record=record,
+        layer_index=layer_index,
+        layer_reason=layer_reason,
+        support_id=support_id,
+        support_token=support_token,
+        comparison_id=comparison_id,
+        comparison_token=comparison_token,
+        support_contrib=support_contrib,
+        comparison_contrib=comparison_contrib,
+        net_contrib=net_contrib,
+        layer_support_score=layer_support_score,
+        reconstructed_support_score=reconstructed_support_score,
+        bias_delta=bias_delta,
+        top_k=top_k,
+    )
+    output_record["token_pair_mode"] = token_pair_mode
+    return output_record, support_contrib, comparison_contrib, net_contrib
+
+
+def main() -> None:
+    args = parse_args()
+    device = resolve_device() if args.device == "auto" else args.device
+    validate_device(device)
+
+    input_path = Path(args.input_path)
+    records = load_records(input_path)
+    record_index, record = select_record(
+        records=records,
+        sample_index=args.sample_index,
+        question_contains=args.question_contains,
+    )
+    print(f"Loading {args.model} on {device}...")
+    tokenizer, model = load_model(
+        model_name=args.model,
+        device=device,
+        allow_remote_code=args.allow_remote_code,
+    )
+
+    output_record, support_contrib, comparison_contrib, net_contrib = analyze_record_neurons(
+        record_index=record_index,
+        record=record,
+        tokenizer=tokenizer,
+        model=model,
+        device=device,
+        explicit_layer=args.layer,
+        layer_mode=args.layer_mode,
+        top_k=args.top_k,
+    )
+    layer_index = output_record["layer_index"]
+    layer_reason = output_record["layer_selection_reason"]
+    support_token = output_record["support_token"]
+    comparison_token = output_record["comparison_token"]
+    token_pair_mode = output_record["token_pair_mode"]
 
     output_dir = Path(args.out_dir) / f"record_{record_index:03d}_layer_{layer_index:02d}"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -421,25 +467,6 @@ def main() -> None:
         output_path=top_neurons_path,
     )
 
-    output_record = build_output_record(
-        record_index=record_index,
-        record=record,
-        layer_index=layer_index,
-        layer_reason=layer_reason,
-        support_id=support_id,
-        support_token=support_token,
-        comparison_id=comparison_id,
-        comparison_token=comparison_token,
-        support_contrib=support_contrib,
-        comparison_contrib=comparison_contrib,
-        net_contrib=net_contrib,
-        layer_support_score=layer_support_score,
-        reconstructed_support_score=reconstructed_support_score,
-        bias_delta=bias_delta,
-        top_k=args.top_k,
-    )
-    output_record["token_pair_mode"] = token_pair_mode
-
     summary_path = output_dir / "neuron_contributions.json"
     save_json(output_record, summary_path)
 
@@ -448,9 +475,9 @@ def main() -> None:
         f"pair_mode={token_pair_mode} support_token={support_token!r} comparison_token={comparison_token!r}"
     )
     print(
-        f"layer_support_score={layer_support_score:.6f} "
-        f"reconstructed_support_score={reconstructed_support_score:.6f} "
-        f"bias_delta={bias_delta:.6f}"
+        f"layer_support_score={output_record['layer_support_score']:.6f} "
+        f"reconstructed_support_score={output_record['reconstructed_support_score']:.6f} "
+        f"bias_delta={output_record['bias_delta']:.6f}"
     )
     print(
         f"supporting_neurons={output_record['supporting_neuron_count']} "

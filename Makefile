@@ -33,6 +33,17 @@ NEURON_LAYER ?=
 NEURON_TOP_K ?= 20
 QUESTION_CONTAINS ?=
 
+DETECTOR_INPUT ?= $(TRUTHFULQA_BENCHMARK_OUT)
+DETECTOR_OUTPUT_DIR ?= results/stability_detector
+CONFLICT_INPUT ?= $(TRUTHFULQA_BENCHMARK_OUT)
+CONFLICT_OUTPUT_DIR ?= results/conflict_neuron_patterns
+HIGH_K ?= 3
+LOW_K ?= 3
+LABEL_INPUT ?= $(TRUTHFULQA_BENCHMARK_OUT)
+LABEL_OUTPUT ?= results/truthfulqa_consensus_benchmark_reviewed.json
+STATS_INPUT ?= $(TRUTHFULQA_BENCHMARK_OUT)
+STATS_OUTPUT_DIR ?= results/conflict_statistics
+
 LIMIT ?=
 INPUT ?=
 OUTPUT_DIR ?=
@@ -60,7 +71,11 @@ RUN_QUESTION_MATCH := $(if $(QUESTION_MATCH),$(QUESTION_MATCH),$(QUESTION_CONTAI
 	truthfulqa prepare-truthfulqa \
 	benchmark benchmark-truthfulqa \
 	plots visualize-consensus \
-	neurons analyze-neurons
+	neurons analyze-neurons \
+	detector train-detector \
+	conflict-neurons analyze-conflict-neurons \
+	label-benchmark review-labels \
+	conflict-stats analyze-conflict-stats
 
 help:
 	@echo "Recommended targets:"
@@ -74,10 +89,15 @@ help:
 	@echo "  make benchmark LIMIT=20"
 	@echo "  make plots INPUT=results/truthfulqa_consensus_benchmark.json"
 	@echo "  make neurons QUESTION_MATCH='capital of France' LAYER=19"
+	@echo "  make detector"
+	@echo "  make conflict-neurons"
+	@echo "  make label-benchmark"
+	@echo "  make conflict-stats"
 	@echo ""
 	@echo "Legacy aliases still work:"
 	@echo "  prompt build-hidden-dataset build-consensus-dataset summarize-layer-support"
 	@echo "  prepare-truthfulqa benchmark-truthfulqa visualize-consensus analyze-neurons"
+	@echo "  train-detector analyze-conflict-neurons review-labels analyze-conflict-stats"
 	@echo ""
 	@echo "Useful variables:"
 	@echo "  MODEL='microsoft/phi-2'"
@@ -90,6 +110,8 @@ help:
 	@echo "  SAMPLE=0"
 	@echo "  LAYER=19"
 	@echo "  TOP_K=20"
+	@echo "  HIGH_K=3"
+	@echo "  LOW_K=3"
 	@echo "  QUESTION_MATCH='capital of France'"
 
 venv:
@@ -128,7 +150,7 @@ layers summarize-layer-support: ensure-venv
 truthfulqa prepare-truthfulqa: ensure-venv
 	$(PYTHON) prepare_truthfulqa_dataset.py --out "$(TRUTHFULQA_PAIRS)" --limit $(RUN_LIMIT)
 
-benchmark benchmark-truthfulqa: ensure-venv
+benchmark benchmark-truthfulqa: truthfulqa ensure-venv
 	$(PYTHON) benchmark_truthfulqa_consensus.py $(if $(MODEL),--model "$(MODEL)") --dataset "$(TRUTHFULQA_PAIRS)" --out "$(TRUTHFULQA_BENCHMARK_OUT)" --limit $(RUN_LIMIT) --temperature $(TEMPERATURE) --max-new-tokens $(MAX_NEW_TOKENS)
 
 plots visualize-consensus: ensure-venv
@@ -136,3 +158,15 @@ plots visualize-consensus: ensure-venv
 
 neurons analyze-neurons: ensure-venv
 	$(PYTHON) analyze_neuron_contributions.py $(if $(MODEL),--model "$(MODEL)") --in "$(RUN_NEURON_INPUT)" --out-dir "$(RUN_NEURON_OUTPUT_DIR)" --sample-index $(RUN_SAMPLE) --layer-mode "$(NEURON_LAYER_MODE)" --top-k $(RUN_TOP_K) $(if $(RUN_LAYER),--layer $(RUN_LAYER)) $(if $(RUN_QUESTION_MATCH),--question-contains "$(RUN_QUESTION_MATCH)")
+
+detector train-detector: ensure-venv
+	$(PYTHON) train_stability_detector.py --in "$(DETECTOR_INPUT)" --out-dir "$(DETECTOR_OUTPUT_DIR)"
+
+conflict-neurons analyze-conflict-neurons: ensure-venv
+	$(PYTHON) analyze_conflict_neuron_patterns.py $(if $(MODEL),--model "$(MODEL)") --in "$(CONFLICT_INPUT)" --out-dir "$(CONFLICT_OUTPUT_DIR)" --high-k $(HIGH_K) --low-k $(LOW_K) --layer-mode "$(NEURON_LAYER_MODE)" --top-k-neurons $(RUN_TOP_K) $(if $(RUN_LAYER),--layer $(RUN_LAYER))
+
+label-benchmark review-labels: ensure-venv
+	$(PYTHON) review_benchmark_labels.py --in "$(LABEL_INPUT)" --out "$(LABEL_OUTPUT)" $(if $(LIMIT),--limit $(LIMIT))
+
+conflict-stats analyze-conflict-stats: ensure-venv
+	$(PYTHON) analyze_conflict_statistics.py --in "$(STATS_INPUT)" --out-dir "$(STATS_OUTPUT_DIR)"

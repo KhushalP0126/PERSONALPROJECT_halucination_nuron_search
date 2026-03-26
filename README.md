@@ -35,6 +35,10 @@ python check_mps.py
 - `benchmark_truthfulqa_consensus.py`: compare truthful vs false answer tokens on TruthfulQA
 - `visualize_consensus_patterns.py`: plot curves, compute conflict scores, and evaluate a simple threshold baseline
 - `analyze_neuron_contributions.py`: decompose one selected layer into per-neuron support vs opposition contributions
+- `train_stability_detector.py`: train a small detector from conflict-oriented benchmark features
+- `analyze_conflict_neuron_patterns.py`: compare recurring neuron patterns in high-conflict wrong cases versus low-conflict correct cases
+- `review_benchmark_labels.py`: rapidly review ambiguous benchmark outputs and assign manual labels
+- `analyze_conflict_statistics.py`: test whether conflict separates correct and wrong answers with effect sizes and p-values
 
 ## Makefile Shortcuts
 
@@ -49,6 +53,10 @@ make truthfulqa LIMIT=20
 make benchmark LIMIT=20
 make plots INPUT=results/truthfulqa_consensus_benchmark.json
 make neurons QUESTION_MATCH="capital of France" LAYER=19
+make detector
+make conflict-neurons
+make label-benchmark
+make conflict-stats
 ```
 
 Useful overrides:
@@ -58,6 +66,9 @@ make ask MODEL="microsoft/phi-2" QUESTION="What is the capital of Germany?"
 make benchmark LIMIT=20
 make plots INPUT=results/truthfulqa_consensus_benchmark.json OUTPUT_DIR=results/consensus_plots
 make neurons INPUT=results/consensus_dataset.json QUESTION_MATCH="capital of France" LAYER=19 TOP_K=25
+make conflict-neurons HIGH_K=2 LOW_K=2
+make label-benchmark LIMIT=10
+make conflict-stats STATS_INPUT=results/truthfulqa_consensus_benchmark_reviewed.json
 ```
 
 Legacy target names like `prompt`, `build-consensus-dataset`, and `analyze-neurons` still work, but the shorter names above are the preferred interface.
@@ -330,6 +341,131 @@ Each run writes:
 - `neuron_contributions.json`
 
 This is still an approximation. The decomposition is done after the final normalization step, so it is a useful linearized view of neuron influence, not a full causal attribution.
+
+## 9. Train An Internal Stability Detector
+
+Run:
+
+```bash
+python train_stability_detector.py --in results/truthfulqa_consensus_benchmark.json
+```
+
+Or with Make:
+
+```bash
+make detector
+```
+
+This script extracts a compact feature set from each support curve:
+
+- overall mean
+- conflict standard deviation
+- late-layer mean
+- late-layer conflict
+- spread
+- sign flips
+- logit confidence
+
+It trains a simple logistic regression model with leave-one-out evaluation and saves:
+
+- `results/stability_detector/summary.json`
+- `results/stability_detector/predictions.json`
+- `results/stability_detector/feature_weights.png`
+
+## 10. Compare High-Conflict And Low-Conflict Neuron Patterns
+
+Run:
+
+```bash
+python analyze_conflict_neuron_patterns.py --in results/truthfulqa_consensus_benchmark.json
+```
+
+Or with Make:
+
+```bash
+make conflict-neurons
+```
+
+## 11. Rapidly Review Ambiguous Labels
+
+Run:
+
+```bash
+python review_benchmark_labels.py --in results/truthfulqa_consensus_benchmark.json
+```
+
+Or with Make:
+
+```bash
+make label-benchmark
+```
+
+Default output:
+
+```text
+results/truthfulqa_consensus_benchmark_reviewed.json
+```
+
+This script is meant for scaling to 100+ examples without changing the benchmark logic itself.
+
+It:
+
+- queues only ambiguous records by default
+- shows the question, model answer, and top correct/incorrect references
+- lets you press `1` for correct, `0` for wrong, `s` to skip, or `q` to stop and save
+- resumes from the reviewed output file if you run it again
+
+For a non-interactive preview:
+
+```bash
+python review_benchmark_labels.py --preview-only --limit 5
+```
+
+## 12. Measure Whether Conflict Is Statistically Real
+
+Run:
+
+```bash
+python analyze_conflict_statistics.py --in results/truthfulqa_consensus_benchmark.json
+```
+
+Or with Make:
+
+```bash
+make conflict-stats
+```
+
+Output:
+
+```text
+results/conflict_statistics/summary.json
+```
+
+The statistical summary reports both `conflict` and `late_conflict`, including:
+
+- class means
+- mean difference (`wrong - correct`)
+- Cohen's d
+- common-language effect size
+- permutation-test p-value
+- bootstrap 95% confidence interval
+- midpoint-threshold accuracy
+- binomial p-value for the threshold baseline
+
+This is the Day 8 scaling check: keep the metric simple, then test whether the separation survives with more reviewed labels.
+
+This script:
+
+- selects the highest-conflict wrong cases
+- selects the lowest-conflict correct cases
+- runs neuron attribution on each selected example
+- summarizes recurring supporting and opposing neurons across the two groups
+
+It writes:
+
+- per-case neuron outputs under `results/conflict_neuron_patterns/`
+- `results/conflict_neuron_patterns/summary.json`
+- frequency plots for recurring neurons in each group
 
 ## Notes
 

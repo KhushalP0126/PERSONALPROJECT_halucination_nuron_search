@@ -163,6 +163,13 @@ def load_truthfulqa_records(path: Path, limit: int) -> list[dict]:
     if not isinstance(records, list):
         raise ValueError("Prepared TruthfulQA dataset must be a JSON array.")
 
+    if len(records) < limit:
+        raise ValueError(
+            f"Requested limit={limit}, but prepared dataset {path} only has {len(records)} records. "
+            f"Regenerate it first with prepare_truthfulqa_dataset.py --limit {limit} "
+            f"or use 'make benchmark LIMIT={limit}'."
+        )
+
     filtered = []
     for record in records:
         if "q" not in record or "correct_answer" not in record or "incorrect_answer" not in record:
@@ -177,6 +184,11 @@ def load_truthfulqa_records(path: Path, limit: int) -> list[dict]:
 def prefixed_summary(scores: list[float], prefix: str) -> dict:
     summary = summarize_layer_scores(scores)
     return {f"{prefix}_{key}": value for key, value in summary.items()}
+
+
+def logit_confidence(final_logits) -> float:
+    top2 = final_logits[0].topk(k=2).values
+    return float((top2[0] - top2[1]).item())
 
 
 def normalize_text(text: str) -> str:
@@ -420,6 +432,7 @@ def build_record(item: dict, tokenizer, model, device: str, max_new_tokens: int,
         final_logits=final_logits,
         correct_id=truth_id,
     )
+    confidence = logit_confidence(final_logits)
 
     per_layer_logits = layer_logits(hidden_states=hidden_states, model=model)
     truth_vs_false_scores = layer_support_scores(
@@ -472,6 +485,7 @@ def build_record(item: dict, tokenizer, model, device: str, max_new_tokens: int,
         "model_comparison_token_id": model_comparison_id,
         "model_comparison_token": tokenizer.decode([model_comparison_id]),
         "model_comparison_mode": model_comparison_mode,
+        "logit_confidence": confidence,
         "support_scores": truth_vs_false_scores,
         "truth_vs_false_scores": truth_vs_false_scores,
         "truth_vs_false_consensus_mean": sum(truth_vs_false_scores) / len(truth_vs_false_scores),
