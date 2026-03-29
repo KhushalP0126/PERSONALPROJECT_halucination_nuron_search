@@ -1,6 +1,4 @@
 {
-  "metric_name": "late_slope",
-  "late_window": 5,
   "split": {
     "mode": "separate_datasets",
     "holdout_is_fresh_dataset": true,
@@ -212,43 +210,279 @@
     "dev_skipped_unlabeled_count": 0,
     "holdout_skipped_unlabeled_count": 0
   },
-  "development": {
-    "sample_count": 99,
-    "correct_count": 15,
-    "wrong_count": 84,
-    "correct_mean": 0.4707161458333336,
-    "wrong_mean": -0.013546153477259978,
-    "mean_difference_correct_minus_wrong": 0.48426229931059356,
-    "cohens_d": 0.421480564278488,
-    "common_language_effect_size": 0.5746031746031746,
-    "permutation_p_value": 0.07119288071192881,
-    "bootstrap_95ci_correct_minus_wrong": [
-      -0.31571531577337353,
-      1.3074684598105295
-    ],
-    "threshold": 0.22858499617803682,
-    "threshold_accuracy": 0.5757575757575758,
-    "threshold_correct_count": 57,
-    "threshold_binomial_p_value": 0.07953482594061895
+  "legacy_baseline": {
+    "metric_name": "legacy_late_slope_fixed_window",
+    "late_window": 5,
+    "development": {
+      "sample_count": 99,
+      "correct_count": 15,
+      "wrong_count": 84,
+      "correct_mean": 0.4707161458333336,
+      "wrong_mean": -0.013546153477259978,
+      "mean_difference_correct_minus_wrong": 0.48426229931059356,
+      "cohens_d": 0.421480564278488,
+      "common_language_effect_size": 0.5746031746031746,
+      "permutation_p_value": 0.06869313068693131,
+      "bootstrap_95ci_correct_minus_wrong": [
+        -0.31925372877575087,
+        1.2934640125093007
+      ],
+      "roc_auc": 0.5746031746031747,
+      "threshold": 0.22858499617803682,
+      "threshold_accuracy": 0.5757575757575758,
+      "threshold_correct_count": 57,
+      "threshold_binomial_p_value": 0.07953482594061895
+    },
+    "holdout": {
+      "sample_count": 100,
+      "correct_count": 18,
+      "wrong_count": 82,
+      "correct_mean": 0.7771158854166667,
+      "wrong_mean": 0.08936112566692078,
+      "mean_difference_correct_minus_wrong": 0.6877547597497459,
+      "cohens_d": 0.5760964465398942,
+      "common_language_effect_size": 0.6375338753387534,
+      "permutation_p_value": 0.015398460153984602,
+      "bootstrap_95ci_correct_minus_wrong": [
+        -0.08433690761162976,
+        1.4294244657687054
+      ],
+      "roc_auc": 0.6375338753387534,
+      "threshold": 0.22858499617803682,
+      "threshold_accuracy": 0.58,
+      "threshold_correct_count": 58,
+      "threshold_binomial_p_value": 0.06660530960360665
+    }
   },
-  "holdout": {
-    "sample_count": 100,
-    "correct_count": 18,
-    "wrong_count": 82,
-    "correct_mean": 0.7771158854166667,
-    "wrong_mean": 0.08936112566692078,
-    "mean_difference_correct_minus_wrong": 0.6877547597497459,
-    "cohens_d": 0.5760964465398942,
-    "common_language_effect_size": 0.6375338753387534,
-    "permutation_p_value": 0.013898610138986101,
-    "bootstrap_95ci_correct_minus_wrong": [
-      -0.09724883785092722,
-      1.4223108852975739
+  "candidate_variants": {
+    "late_window_slope": {
+      "definition": "slope over the final 30% of support layers",
+      "development": {
+        "sample_count": 99,
+        "correct_count": 15,
+        "wrong_count": 84,
+        "correct_mean": 0.5421158563523065,
+        "wrong_mean": -0.1984938245241335,
+        "mean_difference_correct_minus_wrong": 0.74060968087644,
+        "cohens_d": 0.7305791831812641,
+        "common_language_effect_size": 0.6555555555555556,
+        "permutation_p_value": 0.007599240075992401,
+        "bootstrap_95ci_correct_minus_wrong": [
+          0.05530016589326924,
+          1.4662245751400385
+        ],
+        "roc_auc": 0.6555555555555556,
+        "threshold": 0.1718110159140865,
+        "threshold_accuracy": 0.6565656565656566,
+        "threshold_correct_count": 65,
+        "threshold_binomial_p_value": 0.0011973146787530044
+      },
+      "holdout": {
+        "sample_count": 100,
+        "correct_count": 18,
+        "wrong_count": 82,
+        "correct_mean": 0.6653103298611112,
+        "wrong_mean": -0.17523758253569388,
+        "mean_difference_correct_minus_wrong": 0.840547912396805,
+        "cohens_d": 0.7799786648187575,
+        "common_language_effect_size": 0.6781842818428184,
+        "permutation_p_value": 0.0018998100189981002,
+        "bootstrap_95ci_correct_minus_wrong": [
+          0.15371861640584608,
+          1.4970089675380518
+        ],
+        "roc_auc": 0.6781842818428185,
+        "threshold": 0.1718110159140865,
+        "threshold_accuracy": 0.62,
+        "threshold_correct_count": 62,
+        "threshold_binomial_p_value": 0.010489367838925866
+      },
+      "locked_rule": {
+        "metric": "late_window_slope",
+        "higher_is_more_truthful": true,
+        "threshold_source": "midpoint between development correct and wrong means"
+      }
+    },
+    "mean_late_support": {
+      "definition": "mean support over the final 30% of support layers",
+      "development": {
+        "sample_count": 99,
+        "correct_count": 15,
+        "wrong_count": 84,
+        "correct_mean": -1.6525024414062497,
+        "wrong_mean": -1.6339814192583773,
+        "mean_difference_correct_minus_wrong": -0.018521022147872435,
+        "cohens_d": -0.004870758927314157,
+        "common_language_effect_size": 0.47619047619047616,
+        "permutation_p_value": 0.5131486851314868,
+        "bootstrap_95ci_correct_minus_wrong": [
+          -1.8034964184533981,
+          1.906838295475965
+        ],
+        "roc_auc": 0.47619047619047616,
+        "threshold": -1.6432419303323136,
+        "threshold_accuracy": 0.42424242424242425,
+        "threshold_correct_count": 42,
+        "threshold_binomial_p_value": 0.9463242067334058
+      },
+      "holdout": {
+        "sample_count": 100,
+        "correct_count": 18,
+        "wrong_count": 82,
+        "correct_mean": -1.526243179563492,
+        "wrong_mean": -1.6610618086226723,
+        "mean_difference_correct_minus_wrong": 0.13481862905918018,
+        "cohens_d": 0.038695091767553695,
+        "common_language_effect_size": 0.510840108401084,
+        "permutation_p_value": 0.43445655434456554,
+        "bootstrap_95ci_correct_minus_wrong": [
+          -1.3497852682836562,
+          1.6233915611795795
+        ],
+        "roc_auc": 0.5108401084010841,
+        "threshold": -1.6432419303323136,
+        "threshold_accuracy": 0.52,
+        "threshold_correct_count": 52,
+        "threshold_binomial_p_value": 0.38217671720133345
+      },
+      "locked_rule": {
+        "metric": "mean_late_support",
+        "higher_is_more_truthful": true,
+        "threshold_source": "midpoint between development correct and wrong means"
+      }
+    }
+  },
+  "selected_variant": {
+    "name": "late_window_slope",
+    "selection_rule": "highest development threshold accuracy, breaking ties by development ROC AUC",
+    "development_pearson_correlation_with_logit_confidence": -0.05575900816790498,
+    "holdout_pearson_correlation_with_logit_confidence": -0.07917184511624521,
+    "development": {
+      "sample_count": 99,
+      "correct_count": 15,
+      "wrong_count": 84,
+      "correct_mean": 0.5421158563523065,
+      "wrong_mean": -0.1984938245241335,
+      "mean_difference_correct_minus_wrong": 0.74060968087644,
+      "cohens_d": 0.7305791831812641,
+      "common_language_effect_size": 0.6555555555555556,
+      "permutation_p_value": 0.007599240075992401,
+      "bootstrap_95ci_correct_minus_wrong": [
+        0.05530016589326924,
+        1.4662245751400385
+      ],
+      "roc_auc": 0.6555555555555556,
+      "threshold": 0.1718110159140865,
+      "threshold_accuracy": 0.6565656565656566,
+      "threshold_correct_count": 65,
+      "threshold_binomial_p_value": 0.0011973146787530044
+    },
+    "holdout": {
+      "sample_count": 100,
+      "correct_count": 18,
+      "wrong_count": 82,
+      "correct_mean": 0.6653103298611112,
+      "wrong_mean": -0.17523758253569388,
+      "mean_difference_correct_minus_wrong": 0.840547912396805,
+      "cohens_d": 0.7799786648187575,
+      "common_language_effect_size": 0.6781842818428184,
+      "permutation_p_value": 0.0018998100189981002,
+      "bootstrap_95ci_correct_minus_wrong": [
+        0.15371861640584608,
+        1.4970089675380518
+      ],
+      "roc_auc": 0.6781842818428185,
+      "threshold": 0.1718110159140865,
+      "threshold_accuracy": 0.62,
+      "threshold_correct_count": 62,
+      "threshold_binomial_p_value": 0.010489367838925866
+    },
+    "locked_rule": {
+      "metric": "late_window_slope",
+      "higher_is_more_truthful": true,
+      "threshold_source": "midpoint between development correct and wrong means"
+    }
+  },
+  "combined_model": {
+    "feature_names": [
+      "late_window_slope",
+      "logit_confidence"
     ],
-    "threshold": 0.22858499617803682,
-    "threshold_accuracy": 0.58,
-    "threshold_correct_count": 58,
-    "threshold_binomial_p_value": 0.06660530960360665
+    "feature_correlation": {
+      "development_pearson": -0.05575900816790498,
+      "holdout_pearson": -0.07917184511624521
+    },
+    "training": {
+      "steps": 4000,
+      "learning_rate": 0.1,
+      "regularization": 0.01,
+      "weights_on_standardized_features": {
+        "late_window_slope": 0.5427884879286332,
+        "logit_confidence": -0.3679374542893524
+      },
+      "bias": -0.1700688344961704,
+      "feature_means": {
+        "late_window_slope": -0.08628023651255165,
+        "logit_confidence": 0.9049084595959596
+      },
+      "feature_stds": {
+        "late_window_slope": 1.037979553396624,
+        "logit_confidence": 0.8838709494135787
+      }
+    },
+    "development": {
+      "sample_count": 99,
+      "correct_count": 15,
+      "wrong_count": 84,
+      "correct_mean": 0.5548417889481374,
+      "wrong_mean": 0.4451582110518628,
+      "mean_difference_correct_minus_wrong": 0.10968357789627459,
+      "cohens_d": 0.7398817482746238,
+      "common_language_effect_size": 0.676984126984127,
+      "permutation_p_value": 0.0059994000599940004,
+      "bootstrap_95ci_correct_minus_wrong": [
+        0.019430336926070206,
+        0.2000896789107628
+      ],
+      "roc_auc": 0.676984126984127,
+      "threshold": 0.5000000000000001,
+      "threshold_accuracy": 0.6060606060606061,
+      "threshold_correct_count": 60,
+      "threshold_binomial_p_value": 0.021937646793507598
+    },
+    "holdout": {
+      "sample_count": 100,
+      "correct_count": 18,
+      "wrong_count": 82,
+      "correct_mean": 0.5649415318130402,
+      "wrong_mean": 0.4451757400642188,
+      "mean_difference_correct_minus_wrong": 0.1197657917488214,
+      "cohens_d": 0.7712136201684995,
+      "common_language_effect_size": 0.7025745257452575,
+      "permutation_p_value": 0.0020997900209979003,
+      "bootstrap_95ci_correct_minus_wrong": [
+        0.030018642194006344,
+        0.20483737237579253
+      ],
+      "roc_auc": 0.7025745257452574,
+      "threshold": 0.5000000000000001,
+      "threshold_accuracy": 0.64,
+      "threshold_correct_count": 64,
+      "threshold_binomial_p_value": 0.0033185602579630623
+    },
+    "locked_rule": {
+      "metric": "two_feature_logistic_regression",
+      "training_source": "development split only",
+      "threshold_source": "midpoint between development correct and wrong predicted-probability means"
+    }
+  },
+  "final_setup": {
+    "name": "combined_model",
+    "family": "combined_model",
+    "frozen_internal_feature": "late_window_slope",
+    "frozen_classifier": "logistic_regression",
+    "selection_rule": "lock the best single internal feature, then pair it with logit_confidence as the minimal practical system",
+    "claim": "Late-layer convergence provides a weak but generalizable internal signal of correctness, and improves prediction when combined with model confidence."
   },
   "development_records": [
     {
@@ -1448,11 +1682,14 @@
       "label_method": "reference_similarity_incorrect"
     }
   ],
-  "locked_rule": {
-    "metric": "late_slope",
-    "definition": "slope of a first-order fit over the final late_window support scores",
-    "higher_is_more_truthful": true,
-    "threshold_source": "midpoint between development correct and wrong means"
+  "artifacts": {
+    "summary": "results/late_slope_holdout/summary.json",
+    "development_predictions": "results/late_slope_holdout/development_predictions.jsonl",
+    "holdout_predictions": "results/late_slope_holdout/holdout_predictions.jsonl",
+    "error_analysis_candidates": "results/late_slope_holdout/error_analysis_candidates.json",
+    "distribution_plot": "results/late_slope_holdout/late_slope_holdout.png",
+    "roc_curve_plot": "results/late_slope_holdout/roc_curve.png",
+    "generalization_plot": "results/late_slope_holdout/generalization_accuracy.png"
   },
-  "caveat": "If split.mode is single_dataset_split, this is only a post-hoc holdout estimate because the same reviewed dataset informed the metric discovery. Use --holdout-in with a fresh labeled benchmark file for a cleaner external validation."
+  "caveat": "If split.mode is single_dataset_split, this is only a post-hoc holdout estimate because the same reviewed dataset informed metric discovery. Using a separate reviewed holdout file is cleaner."
 }

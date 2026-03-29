@@ -1,15 +1,10 @@
 import argparse
 import json
-import os
 from pathlib import Path
 
-PROJECT_CACHE_DIR = Path(__file__).resolve().parent / ".cache"
-PROJECT_CACHE_DIR.mkdir(exist_ok=True)
-os.environ.setdefault("XDG_CACHE_HOME", str(PROJECT_CACHE_DIR))
+from detection.env import configure_matplotlib_env
 
-MATPLOTLIB_CACHE_DIR = PROJECT_CACHE_DIR / "matplotlib"
-MATPLOTLIB_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-os.environ.setdefault("MPLCONFIGDIR", str(MATPLOTLIB_CACHE_DIR))
+configure_matplotlib_env(Path(__file__).resolve().parent)
 
 import matplotlib
 
@@ -17,6 +12,10 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 import numpy as np
+
+from detection.features import consensus_mean, full_conflict, positive_layer_fraction
+from detection.io import load_records
+from detection.labels import as_binary_label, derive_binary_label
 
 
 DEFAULT_INPUT_FILE = Path("results/truthfulqa_consensus_benchmark.json")
@@ -27,138 +26,22 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Plot layer-wise consensus signals and measure whether conflict separates correct from hallucinated answers."
     )
-    parser.add_argument(
-        "--in",
-        dest="input_path",
-        default=str(DEFAULT_INPUT_FILE),
-        help="Path to a consensus dataset JSON file.",
-    )
+    parser.add_argument("--in", dest="input_path", default=str(DEFAULT_INPUT_FILE), help="Path to a consensus dataset JSON file.")
     parser.add_argument(
         "--out-dir",
         default=str(DEFAULT_OUTPUT_DIR),
         help="Directory where plots and summary files will be written.",
     )
-    parser.add_argument(
-        "--score-field",
-        default="support_scores",
-        help="Field containing the per-layer score list.",
-    )
+    parser.add_argument("--score-field", default="support_scores", help="Field containing the per-layer score list.")
     parser.add_argument(
         "--label-field",
         default="label",
         help="Field containing a binary label where 1 means correct/truthful and 0 means hallucinated/wrong.",
     )
-    parser.add_argument(
-        "--sample-index",
-        type=int,
-        default=0,
-        help="Sample index to plot individually.",
-    )
-    parser.add_argument(
-        "--conflict-threshold",
-        type=float,
-        help="Optional manual threshold. If omitted, the script picks a midpoint between class means.",
-    )
-    parser.add_argument(
-        "--overlay-count",
-        type=int,
-        default=5,
-        help="How many sample curves to overlay in the multi-sample figure.",
-    )
+    parser.add_argument("--sample-index", type=int, default=0, help="Sample index to plot individually.")
+    parser.add_argument("--conflict-threshold", type=float, help="Optional manual threshold between class means.")
+    parser.add_argument("--overlay-count", type=int, default=5, help="How many sample curves to overlay in the multi-sample figure.")
     return parser.parse_args()
-
-
-def load_records(path: Path) -> list[dict]:
-    if not path.exists():
-        raise FileNotFoundError(f"Consensus dataset not found: {path}")
-
-    records = json.loads(path.read_text())
-    if not isinstance(records, list) or not records:
-        raise ValueError("Consensus dataset must be a non-empty JSON array.")
-
-    return records
-
-
-def as_binary_label(value):
-    if isinstance(value, bool):
-        return int(value)
-    if isinstance(value, (int, float)) and value in {0, 1}:
-        return int(value)
-    if isinstance(value, str):
-        normalized = value.strip().lower()
-        if normalized in {"1", "true", "correct", "truthful"}:
-            return 1
-        if normalized in {"0", "false", "wrong", "hallucinated"}:
-            return 0
-    raise ValueError(f"Expected a binary label, got: {value!r}")
-
-
-def normalize_text(text: str) -> str:
-    return " ".join(text.lower().strip().split())
-
-
-def is_unknown_target(text: str) -> bool:
-    normalized = normalize_text(text)
-    return normalized in {
-        "unknown",
-        "unknown_future",
-        "i don't know",
-        "i dont know",
-        "cannot be known yet",
-    }
-
-
-def answer_indicates_unknown(text: str) -> bool:
-    normalized = normalize_text(text)
-    return any(
-        phrase in normalized
-        for phrase in (
-            "i don't know",
-            "i dont know",
-            "cannot be known",
-            "can't be known",
-            "cannot know",
-            "unknown",
-        )
-    )
-
-
-def derive_binary_label(record: dict) -> int:
-    answer = record.get("answer") or record.get("model_answer")
-    truth = record.get("gt") or record.get("correct_answer")
-    false_answer = record.get("incorrect_answer")
-
-    if not isinstance(answer, str) or not answer.strip():
-        raise ValueError("Could not derive a binary label because the record is missing an answer field.")
-    if not isinstance(truth, str) or not truth.strip():
-        raise ValueError("Could not derive a binary label because the record is missing a ground-truth field.")
-
-    normalized_answer = normalize_text(answer)
-    normalized_truth = normalize_text(truth)
-    normalized_false = normalize_text(false_answer) if isinstance(false_answer, str) else ""
-
-    if is_unknown_target(truth):
-        return 1 if answer_indicates_unknown(answer) else 0
-
-    if normalized_false and normalized_false in normalized_answer and normalized_truth not in normalized_answer:
-        return 0
-    if normalized_truth in normalized_answer:
-        return 1
-    if normalized_answer == normalized_truth:
-        return 1
-    return 0
-
-
-def conflict_score(scores: list[float]) -> float:
-    return float(np.std(scores))
-
-
-def consensus_mean(scores: list[float]) -> float:
-    return float(np.mean(scores))
-
-
-def positive_layer_fraction(scores: list[float]) -> float:
-    return float(np.mean([score > 0 for score in scores]))
 
 
 def enrich_records(records: list[dict], score_field: str, label_field: str) -> tuple[list[dict], int]:
@@ -185,7 +68,7 @@ def enrich_records(records: list[dict], score_field: str, label_field: str) -> t
         except ValueError:
             enriched_record["label"] = derive_binary_label(record)
             enriched_record["label_source"] = "derived_from_answer"
-        enriched_record["conflict"] = conflict_score(scores)
+        enriched_record["conflict"] = full_conflict(scores)
         enriched_record["consensus_mean"] = float(record.get("consensus_mean", consensus_mean(scores)))
         enriched_record["positive_layer_fraction"] = float(
             record.get("positive_layer_fraction", positive_layer_fraction(scores))
@@ -208,10 +91,8 @@ def average_scores(records: list[dict]) -> np.ndarray:
 def choose_threshold(correct: list[dict], wrong: list[dict], manual_threshold: float | None) -> float:
     if manual_threshold is not None:
         return manual_threshold
-
     if not correct or not wrong:
         return float(np.mean([record["conflict"] for record in correct or wrong]))
-
     correct_mean = float(np.mean([record["conflict"] for record in correct]))
     wrong_mean = float(np.mean([record["conflict"] for record in wrong]))
     return (correct_mean + wrong_mean) / 2.0
@@ -249,10 +130,7 @@ def plot_sample(record: dict, output_path: Path) -> None:
     plt.figure(figsize=(10, 4))
     plt.plot(record["support_scores"], linewidth=2)
     plt.axhline(0, color="black", linestyle="--", linewidth=1)
-    plt.title(
-        f"Sample {record.get('q', 'question')} | "
-        f"label={record['label']} | conflict={record['conflict']:.3f}"
-    )
+    plt.title(f"Sample {record.get('q', 'question')} | label={record['label']} | conflict={record['conflict']:.3f}")
     plt.xlabel("Layer")
     plt.ylabel("Support")
     plt.tight_layout()
@@ -387,28 +265,15 @@ def main() -> None:
     plot_averages(correct, wrong, output_dir / "average_support.png")
     plot_conflict_distribution(correct, wrong, threshold, output_dir / "conflict_distribution.png")
     plot_overlay(enriched, args.overlay_count, output_dir / "support_overlay.png")
-    save_summary(
-        enriched,
-        correct,
-        wrong,
-        threshold,
-        skipped_unlabeled,
-        output_dir / "summary.json",
-    )
+    save_summary(enriched, correct, wrong, threshold, skipped_unlabeled, output_dir / "summary.json")
 
     print(f"Saved plots to {output_dir}")
     if skipped_unlabeled:
         print(f"skipped_unlabeled={skipped_unlabeled}")
     if accuracy is None:
-        print(
-            f"correct={len(correct)} wrong={len(wrong)} "
-            f"threshold={threshold:.3f} accuracy=n/a (single class in dataset)"
-        )
+        print(f"correct={len(correct)} wrong={len(wrong)} threshold={threshold:.3f} accuracy=n/a (single class in dataset)")
     else:
-        print(
-            f"correct={len(correct)} wrong={len(wrong)} "
-            f"threshold={threshold:.3f} accuracy={accuracy:.3f}"
-        )
+        print(f"correct={len(correct)} wrong={len(wrong)} threshold={threshold:.3f} accuracy={accuracy:.3f}")
     if agreement_accuracy is not None:
         print(
             f"positive_layer_fraction_threshold={agreement_threshold:.3f} "

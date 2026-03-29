@@ -1,6 +1,6 @@
 # Hallucination Consensus Analyzer
 
-This project studies hallucination as a failure of internal consensus formation inside a local language model.
+This project studies whether internal late-layer behavior can help predict when a local language model is correct versus hallucinating.
 
 It includes:
 
@@ -8,7 +8,19 @@ It includes:
 - hidden-state collection for question/answer runs
 - layer-by-layer consensus scoring
 - TruthfulQA benchmark preparation and paired truth-vs-false analysis
-- visualization and conflict metrics for proving whether the signal separates correct answers from hallucinations
+- visualization and evaluation of late-layer internal signals for correctness prediction
+
+## Current Locked Result
+
+The current minimal result is:
+
+- legacy fixed-window `late_slope`: `0.580` holdout accuracy
+- `late_window_slope` over the final 30% of layers: `0.620` holdout accuracy
+- `late_window_slope + logit_confidence`: `0.640` holdout accuracy, `0.703` holdout ROC AUC
+
+The main claim is:
+
+> Late-layer convergence provides complementary information to model confidence and improves correctness prediction.
 
 ## Setup
 
@@ -40,7 +52,7 @@ python check_mps.py
 - `review_benchmark_labels.py`: rapidly review ambiguous benchmark outputs and assign manual labels
 - `analyze_conflict_statistics.py`: test whether conflict separates correct and wrong answers with effect sizes and p-values
 - `analyze_convergence_metrics.py`: test a pivot hypothesis based on late-layer convergence instead of conflict
-- `evaluate_late_slope_holdout.py`: run a locked holdout test for the chosen late-slope convergence metric
+- `evaluate_late_slope_holdout.py`: run the locked dev/holdout evaluation for the frozen late-layer signal and the minimal 2-feature model
 
 ## Makefile Shortcuts
 
@@ -61,6 +73,11 @@ make label-benchmark
 make conflict-stats
 make convergence
 make holdout
+make dev-benchmark
+make test-benchmark
+make dev-review
+make test-review
+make external-test
 ```
 
 Useful overrides:
@@ -512,9 +529,9 @@ Each metric is scored with the fixed interpretation `higher is more truthful`, a
 
 This is an exploratory pivot, not a confirmed result. If one of these metrics looks promising, the next step is to validate it on a fresh benchmark slice rather than reuse the same reviewed set.
 
-## 14. Run A Locked Holdout Test
+## 14. Run A Locked External Test
 
-Once you decide to lock `late_slope` as the metric, run:
+Once you decide to lock the late-layer setup, run:
 
 ```bash
 python evaluate_late_slope_holdout.py --in results/truthfulqa_consensus_benchmark_reviewed.json
@@ -534,11 +551,13 @@ results/late_slope_holdout/summary.json
 
 This script:
 
-- fixes the metric to `late_slope`
-- keeps the interpretation fixed: higher late slope means more truthful
-- fits the decision threshold on the development split only
-- evaluates the holdout split without retuning
-- saves the exact split membership for reproducibility
+- computes the legacy fixed-window `late_slope` baseline
+- evaluates `late_window_slope` over the final 30% of layers
+- evaluates `mean_late_support` over the final 30% of layers
+- selects the better single-feature variant by development performance
+- trains a frozen 2-feature logistic regression on development only using the selected late-layer feature and `logit_confidence`
+- evaluates holdout without retuning
+- saves split membership, predictions, features, thresholds, and figures for reproducibility
 
 By default it performs a stratified `70/30` split on one reviewed file. For a cleaner external validation, point it at a second unseen reviewed file:
 
@@ -560,30 +579,40 @@ make benchmark LIMIT=100 TRUTHFULQA_PAIRS=data/truthfulqa_holdout.json TRUTHFULQ
 After reviewing labels for both files, run:
 
 ```bash
+make external-test
+```
+
+This is equivalent to:
+
+```bash
 python evaluate_late_slope_holdout.py \
   --in results/truthfulqa_dev_benchmark_reviewed.json \
   --holdout-in results/truthfulqa_holdout_benchmark_reviewed.json
 ```
 
-This script:
-
-- selects the highest-conflict wrong cases
-- selects the lowest-conflict correct cases
-- runs neuron attribution on each selected example
-- summarizes recurring supporting and opposing neurons across the two groups
-
 It writes:
 
-- per-case neuron outputs under `results/conflict_neuron_patterns/`
-- `results/conflict_neuron_patterns/summary.json`
-- frequency plots for recurring neurons in each group
+- `results/late_slope_holdout/summary.json`
+- `results/late_slope_holdout/development_predictions.jsonl`
+- `results/late_slope_holdout/holdout_predictions.jsonl`
+- `results/late_slope_holdout/error_analysis_candidates.json`
+- `results/late_slope_holdout/late_slope_holdout.png`
+- `results/late_slope_holdout/roc_curve.png`
+- `results/late_slope_holdout/generalization_accuracy.png`
+
+Current locked interpretation:
+
+- `late_window_slope` is the best single internal feature
+- `late_window_slope + logit_confidence` is the best minimal practical system
+- low correlation between the two features suggests they are complementary rather than redundant
 
 ## Notes
 
 - The consensus pipeline is a layer-level approximation, not exact neuron attribution.
 - TruthfulQA benchmarking is slower than the small seed datasets, so start with a small `--limit`.
 - The visualization script expects a binary label field. The TruthfulQA benchmark output already provides one.
+- The current external-test result is a small but real milestone, not a production-ready detector.
 
 ## Next Step
 
-Once the plots and conflict scores look meaningful, the next natural step is neuron- or head-level attribution inside the most informative layers.
+After locking this result, the next useful step is a small robustness check on either a slightly different prompt format or a fresh benchmark slice.

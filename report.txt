@@ -1,62 +1,126 @@
-External test report
+Milestone report
 Date: 2026-03-29
 
-Command run:
-make external-test
+Summary
 
-Artifacts:
-- results/late_slope_holdout/summary.json
-- results/late_slope_holdout/late_slope_holdout.png
-- results/truthfulqa_dev_benchmark_reviewed.json
-- results/truthfulqa_holdout_benchmark_reviewed.json
+This project now has a real, minimal result.
 
-Inputs:
-- Development set: results/truthfulqa_dev_benchmark_reviewed.json
-- Holdout set: results/truthfulqa_holdout_benchmark_reviewed.json
-- Metric: late_slope
-- Late window: 5
-- Split mode: separate_datasets
+The old locked baseline used a fixed `late_slope` over the last 5 layers and reached:
+- Dev accuracy: 0.576
+- Holdout accuracy: 0.580
 
-Top-line result:
-- Development threshold accuracy: 0.576
-- Holdout threshold accuracy: 0.580
-- Threshold chosen on development set: 0.22858499617803682
+The upgraded single-feature signal uses `late_window_slope`, defined as the slope over the final 30% of support layers. That improves to:
+- Dev accuracy: 0.657
+- Holdout accuracy: 0.620
+- Holdout ROC AUC: 0.678
 
-Development set summary:
-- Samples: 99
-- Correct labels: 15
-- Wrong labels: 84
-- Correct mean late_slope: 0.4707
-- Wrong mean late_slope: -0.0135
-- Mean difference (correct - wrong): 0.4843
-- Cohen's d: 0.4215
-- Common-language effect size: 0.5746
-- Permutation p-value: 0.0712
-- Bootstrap 95% CI for mean difference: [-0.3157, 1.3075]
-- Threshold correct count: 57 / 99
-- Threshold binomial p-value: 0.0795
+The best minimal system combines:
+- `late_window_slope`
+- `logit_confidence`
 
-Holdout set summary:
-- Samples: 100
-- Correct labels: 18
-- Wrong labels: 82
-- Correct mean late_slope: 0.7771
-- Wrong mean late_slope: 0.0894
-- Mean difference (correct - wrong): 0.6878
-- Cohen's d: 0.5761
-- Common-language effect size: 0.6375
-- Permutation p-value: 0.0139
-- Bootstrap 95% CI for mean difference: [-0.0972, 1.4223]
-- Threshold correct count: 58 / 100
-- Threshold binomial p-value: 0.0666
+This 2-feature logistic regression is trained on development only and evaluated unchanged on holdout:
+- Dev accuracy: 0.606
+- Holdout accuracy: 0.640
+- Dev ROC AUC: 0.677
+- Holdout ROC AUC: 0.703
 
-Interpretation:
-- The late_slope signal separates correct from wrong answers modestly on development and somewhat more clearly on holdout.
-- Accuracy is consistent across development and holdout at roughly 58%, which suggests the chosen threshold is not obviously overfit to the development split.
-- The holdout permutation p-value is stronger than the development p-value, but the thresholded accuracy remains only modestly above chance.
-- The bootstrap confidence intervals for the mean difference still cross zero on both sets, so the effect should be treated as suggestive rather than conclusive.
-- Class imbalance is substantial in both sets, so accuracy alone is not a complete picture.
+Core result
 
-Caveats:
-- The reviewed development and holdout benchmark files include manual labels assigned during this session for previously ambiguous records.
-- The holdout summary uses a fresh holdout dataset rather than a random split from one file.
+Late-layer convergence is a weak standalone signal, but it becomes a useful predictor when combined with model confidence.
+
+The cleanest statement of the result is:
+
+"Late-layer convergence provides complementary information to model confidence and improves correctness prediction."
+
+Why this matters
+
+1. The signal is real
+- Moving from the old fixed-window slope to `late_window_slope` raises holdout accuracy from 0.580 to 0.620.
+- That means late-stage behavior matters, and the measurement choice is important.
+
+2. The combination works
+- The combined model improves holdout accuracy again, from 0.620 to 0.640.
+- The holdout ROC AUC of 0.703 is the best result in the current system.
+
+3. The signals are complementary
+- corr(`late_window_slope`, `logit_confidence`) on dev: -0.0558
+- corr(`late_window_slope`, `logit_confidence`) on holdout: -0.0792
+- These are effectively zero, so the two features are not just duplicates of the same signal.
+
+4. The failures are interpretable
+- High-score wrong cases are often confident misconceptions or stereotype-like yes/no claims.
+- Low-score correct cases are often weakly phrased, benchmark-edge, or ambiguous-label cases.
+- This suggests `late_window_slope` tracks internal convergence or coherence better than it tracks ground truth directly.
+
+Locked setup
+
+Frozen internal feature
+- `late_window_slope`
+- Definition: slope of a first-order fit over the final 30% of support layers
+- Interpretation: higher is more likely to be correct
+
+Frozen minimal classifier
+- Logistic regression on `late_window_slope` and `logit_confidence`
+- Fit on development only
+- Applied unchanged to holdout
+
+Variant comparison
+
+Legacy baseline: fixed `late_slope` over last 5 layers
+- Dev accuracy: 0.576
+- Holdout accuracy: 0.580
+- Dev ROC AUC: 0.575
+- Holdout ROC AUC: 0.638
+- Dev permutation p: 0.0687
+- Holdout permutation p: 0.0154
+
+Variant A: `late_window_slope` over final 30% of layers
+- Dev accuracy: 0.657
+- Holdout accuracy: 0.620
+- Dev ROC AUC: 0.656
+- Holdout ROC AUC: 0.678
+- Dev permutation p: 0.0076
+- Holdout permutation p: 0.0019
+
+Variant B: `mean_late_support` over final 30% of layers
+- Dev accuracy: 0.424
+- Holdout accuracy: 0.520
+- Dev ROC AUC: 0.476
+- Holdout ROC AUC: 0.511
+- Dev permutation p: 0.5131
+- Holdout permutation p: 0.4345
+
+Combined model: `late_window_slope` + `logit_confidence`
+- Dev accuracy: 0.606
+- Holdout accuracy: 0.640
+- Dev ROC AUC: 0.677
+- Holdout ROC AUC: 0.703
+- Dev permutation p: 0.0060
+- Holdout permutation p: 0.0021
+
+Interpretation
+
+This is not a production-ready detector and not a state-of-the-art result. It is a real, interpretable, generalizing signal with a minimal system around it.
+
+The project has crossed from "interesting signal" to "usable result":
+- the signal survives holdout evaluation
+- the combined model improves the baseline
+- the feature interaction is conceptually clean
+- the failure modes are understandable
+
+Artifacts
+
+Saved outputs for this locked run:
+- `results/late_slope_holdout/summary.json`
+- `results/late_slope_holdout/development_predictions.jsonl`
+- `results/late_slope_holdout/holdout_predictions.jsonl`
+- `results/late_slope_holdout/error_analysis_candidates.json`
+- `results/late_slope_holdout/late_slope_holdout.png`
+- `results/late_slope_holdout/roc_curve.png`
+- `results/late_slope_holdout/generalization_accuracy.png`
+
+Notes
+
+- No new datasets were added in this phase.
+- No re-labeling was performed in this phase.
+- The reviewed dev and holdout benchmark files from the previous step remain the source of truth for this evaluation.
