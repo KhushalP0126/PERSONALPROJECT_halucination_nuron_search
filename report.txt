@@ -1,0 +1,62 @@
+External test report
+Date: 2026-03-29
+
+Command run:
+make external-test
+
+Artifacts:
+- results/late_slope_holdout/summary.json
+- results/late_slope_holdout/late_slope_holdout.png
+- results/truthfulqa_dev_benchmark_reviewed.json
+- results/truthfulqa_holdout_benchmark_reviewed.json
+
+Inputs:
+- Development set: results/truthfulqa_dev_benchmark_reviewed.json
+- Holdout set: results/truthfulqa_holdout_benchmark_reviewed.json
+- Metric: late_slope
+- Late window: 5
+- Split mode: separate_datasets
+
+Top-line result:
+- Development threshold accuracy: 0.576
+- Holdout threshold accuracy: 0.580
+- Threshold chosen on development set: 0.22858499617803682
+
+Development set summary:
+- Samples: 99
+- Correct labels: 15
+- Wrong labels: 84
+- Correct mean late_slope: 0.4707
+- Wrong mean late_slope: -0.0135
+- Mean difference (correct - wrong): 0.4843
+- Cohen's d: 0.4215
+- Common-language effect size: 0.5746
+- Permutation p-value: 0.0712
+- Bootstrap 95% CI for mean difference: [-0.3157, 1.3075]
+- Threshold correct count: 57 / 99
+- Threshold binomial p-value: 0.0795
+
+Holdout set summary:
+- Samples: 100
+- Correct labels: 18
+- Wrong labels: 82
+- Correct mean late_slope: 0.7771
+- Wrong mean late_slope: 0.0894
+- Mean difference (correct - wrong): 0.6878
+- Cohen's d: 0.5761
+- Common-language effect size: 0.6375
+- Permutation p-value: 0.0139
+- Bootstrap 95% CI for mean difference: [-0.0972, 1.4223]
+- Threshold correct count: 58 / 100
+- Threshold binomial p-value: 0.0666
+
+Interpretation:
+- The late_slope signal separates correct from wrong answers modestly on development and somewhat more clearly on holdout.
+- Accuracy is consistent across development and holdout at roughly 58%, which suggests the chosen threshold is not obviously overfit to the development split.
+- The holdout permutation p-value is stronger than the development p-value, but the thresholded accuracy remains only modestly above chance.
+- The bootstrap confidence intervals for the mean difference still cross zero on both sets, so the effect should be treated as suggestive rather than conclusive.
+- Class imbalance is substantial in both sets, so accuracy alone is not a complete picture.
+
+Caveats:
+- The reviewed development and holdout benchmark files include manual labels assigned during this session for previously ambiguous records.
+- The holdout summary uses a fresh holdout dataset rather than a random split from one file.
