@@ -6,6 +6,19 @@ The project started from a broader "consensus" idea and is now organized around 
 
 > Late-layer convergence provides complementary information to model confidence and improves correctness prediction.
 
+## Why This Project Matters
+
+Most hallucination work focuses on output text or external verification. This project asks a different question:
+
+> Can you predict correctness from the model's own internal trajectory before adding a complex external system?
+
+That makes it a useful project for:
+
+- LLM evaluation
+- interpretability-adjacent research engineering
+- lightweight correctness prediction
+- building minimal, reproducible ML systems instead of vague demos
+
 ## Current Locked Result
 
 The current external test is run on a reviewed dev set and a separate reviewed holdout set.
@@ -21,6 +34,64 @@ Interpretation:
 - the two features are nearly uncorrelated, so they appear complementary rather than redundant
 
 This is a real, generalizing signal, but not a production-ready detector.
+
+## What I Built
+
+- A local pipeline for collecting layer-wise support signals from a small language model
+- A TruthfulQA benchmarking workflow with manual review for ambiguous examples
+- Multiple detection baselines, including conflict-based metrics, convergence metrics, and simple logistic models
+- A locked dev/holdout evaluation pipeline with saved predictions, thresholds, plots, and error buckets
+- A shared `detection/` package to keep the detection scripts organized and reusable
+
+## What I Found
+
+- The original fixed-window `late_slope` signal was weak but non-random
+- Measuring the slope over the final 30% of layers works better than the original fixed-window version
+- `late_window_slope` and `logit_confidence` are nearly uncorrelated, so they capture different information
+- Combining them improves holdout performance beyond either simple baseline alone
+- Failure cases suggest the internal signal tracks convergence or coherence more directly than ground truth
+
+## Reproduce The Main Result
+
+If the reviewed dev and holdout benchmark files already exist, the fastest way to reproduce the locked result is:
+
+```bash
+make external-test
+```
+
+Main artifact:
+
+```text
+results/late_slope_holdout/summary.json
+```
+
+## Key Figures
+
+Distribution of the selected internal feature:
+
+![Distribution Plot](results/late_slope_holdout/late_slope_holdout.png)
+
+ROC comparison between the selected slope feature and the combined model:
+
+![ROC Curve](results/late_slope_holdout/roc_curve.png)
+
+Development vs holdout accuracy for the selected feature and the combined model:
+
+![Generalization Accuracy](results/late_slope_holdout/generalization_accuracy.png)
+
+## At A Glance
+
+- Problem: detect correctness using internal model behavior
+- Best single feature: `late_window_slope`
+- Best minimal system: `late_window_slope + logit_confidence`
+- Holdout result: `0.640` accuracy, `0.703` ROC AUC
+- Takeaway: internal convergence is a useful but limited signal, and it works better when paired with confidence
+
+## What I Would Do Next
+
+- Run one robustness check on a slightly different prompt format or a fresh benchmark slice
+- Test trajectory-shape features instead of only slope-based summaries
+- Reduce ambiguity in edge-case labels so the signal is not partly capped by label noise
 
 ## Repository Structure
 
@@ -104,16 +175,10 @@ Interactive loop:
 python local_chat.py
 ```
 
-Run the current locked external evaluation if reviewed dev and holdout files already exist:
+Locked external evaluation:
 
 ```bash
 make external-test
-```
-
-The main artifact will be:
-
-```text
-results/late_slope_holdout/summary.json
 ```
 
 ## Recommended Workflow
